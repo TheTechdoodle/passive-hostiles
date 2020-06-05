@@ -31,6 +31,15 @@ public class PassiveHostiles extends JavaPlugin implements Listener
         lastInLoveKey = new NamespacedKey(this, "last-in-love");
         breedingItems = new HashMap<>();
         breedingItems.put(EntityType.CREEPER, Material.GUNPOWDER);
+        breedingItems.put(EntityType.ZOMBIE, Material.ROTTEN_FLESH);
+        breedingItems.put(EntityType.SKELETON, Material.BONE);
+        breedingItems.put(EntityType.SPIDER, Material.STRING);
+        breedingItems.put(EntityType.CAVE_SPIDER, Material.STRING);
+        breedingItems.put(EntityType.BLAZE, Material.BLAZE_ROD);
+        breedingItems.put(EntityType.DROWNED, Material.ROTTEN_FLESH);
+        breedingItems.put(EntityType.HUSK, Material.ROTTEN_FLESH);
+        breedingItems.put(EntityType.PHANTOM, Material.PHANTOM_MEMBRANE);
+        breedingItems.put(EntityType.STRAY, Material.BONE);
         
         getServer().getPluginManager().registerEvents(this, this);
         
@@ -89,7 +98,7 @@ public class PassiveHostiles extends JavaPlugin implements Listener
                             if(closest != null)
                             {
                                 mob.getPathfinder().moveTo(closest);
-                                if(closestDistance < 1.0)
+                                if(closestDistance < 1.5)
                                 {
                                     Location l1 = mob.getLocation();
                                     Location l2 = closest.getLocation();
@@ -104,7 +113,7 @@ public class PassiveHostiles extends JavaPlugin implements Listener
                                                 random.nextDouble() + 0.5,
                                                 random.nextDouble() - 0.5), 1);
                                     }
-                                    spawnLoc.getWorld().spawn(spawnLoc, Creeper.class);
+                                    spawnLoc.getWorld().spawn(spawnLoc, mob.getClass());
                                     ExperienceOrb experience = spawnLoc.getWorld().spawn(spawnLoc, ExperienceOrb.class);
                                     experience.setExperience(random.nextInt(6) + 1);
                                     
