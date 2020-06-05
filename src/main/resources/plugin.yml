@@ -1,0 +1,5 @@
+name: PassiveHostiles
+version: ${project.version}
+main: com.darkender.plugins.passivehostiles.PassiveHostiles
+api-version: 1.15
+author: Techdoodle
