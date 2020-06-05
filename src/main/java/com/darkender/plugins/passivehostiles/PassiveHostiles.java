@@ -1,34 +1,36 @@
 package com.darkender.plugins.passivehostiles;
 
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.Random;
 
 public class PassiveHostiles extends JavaPlugin implements Listener
 {
-    private NamespacedKey inLoveKey;
+    private NamespacedKey lastBredKey;
     private NamespacedKey lastInLoveKey;
-    private Map<EntityType, Set<Mob>> mobsInLove;
     private Map<EntityType, Material> breedingItems;
+    private static final long BREEDING_COOLDOWN = 5 * 60 * 1000;
+    private static final long LOVE_COOLDOWN = 30 * 1000;
+    private long currentTick = 0;
+    private final Random random = new Random();
     
     @Override
     public void onEnable()
     {
-        inLoveKey = new NamespacedKey(this, "in-love");
+        lastBredKey = new NamespacedKey(this, "last-bred");
         lastInLoveKey = new NamespacedKey(this, "last-in-love");
-        mobsInLove = new HashMap<>();
         breedingItems = new HashMap<>();
         breedingItems.put(EntityType.CREEPER, Material.GUNPOWDER);
         
@@ -41,6 +43,7 @@ public class PassiveHostiles extends JavaPlugin implements Listener
             @Override
             public void run()
             {
+                currentTick++;
                 for(World world : getServer().getWorlds())
                 {
                     for(Mob mob : world.getEntitiesByClass(Mob.class))
@@ -78,11 +81,51 @@ public class PassiveHostiles extends JavaPlugin implements Listener
                 event.setCancelled(true);
                 
                 // If the mob is in love, it should be looking for a partner, not following the player
-                if(!mob.getPersistentDataContainer().has(inLoveKey, PersistentDataType.BYTE))
+                if(!isInLove(mob))
                 {
                     mob.getPathfinder().moveTo(event.getTarget());
                 }
             }
         }
+    }
+    
+    @EventHandler
+    public void onPlayerInteractEntity(PlayerInteractEntityEvent event)
+    {
+        if(breedingItems.containsKey(event.getRightClicked().getType()))
+        {
+            Mob mob = (Mob) event.getRightClicked();
+            ItemStack item = event.getPlayer().getInventory().getItem(event.getHand());
+            if(item.getType() == breedingItems.get(mob.getType()) && canBreed(mob) && !isInLove(mob))
+            {
+                mob.getPersistentDataContainer().set(lastInLoveKey, PersistentDataType.LONG, System.currentTimeMillis());
+                
+                Location loc = mob.getLocation().add(0.0, mob.getHeight() - 0.5, 0.0);
+                for(int i = 0; i < 10; i++)
+                {
+                    mob.getWorld().spawnParticle(Particle.HEART, loc.clone().add(
+                            random.nextDouble() - 0.5,
+                            random.nextDouble() - 0.5,
+                            random.nextDouble() - 0.5), 1);
+                }
+                
+                if(event.getPlayer().getGameMode() != GameMode.CREATIVE)
+                {
+                    item.setAmount(item.getAmount() - 1);
+                }
+            }
+        }
+    }
+    
+    public boolean isInLove(Mob mob)
+    {
+        long lastInLove = mob.getPersistentDataContainer().getOrDefault(lastInLoveKey, PersistentDataType.LONG, 0L);
+        return lastInLove > System.currentTimeMillis() - LOVE_COOLDOWN;
+    }
+    
+    public boolean canBreed(Mob mob)
+    {
+        long lastBred = mob.getPersistentDataContainer().getOrDefault(lastBredKey, PersistentDataType.LONG, 0L);
+        return lastBred < System.currentTimeMillis() - BREEDING_COOLDOWN;
     }
 }
