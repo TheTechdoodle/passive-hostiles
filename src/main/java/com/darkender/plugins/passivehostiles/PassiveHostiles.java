@@ -1,9 +1,7 @@
 package com.darkender.plugins.passivehostiles;
 
 import org.bukkit.*;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Mob;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
@@ -36,8 +34,6 @@ public class PassiveHostiles extends JavaPlugin implements Listener
         
         getServer().getPluginManager().registerEvents(this, this);
         
-        // Run this on a timer to interrupt hostile mob targeting when a player
-        // switches to the breeding item *after* the mob started targeting
         getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable()
         {
             @Override
@@ -48,15 +44,74 @@ public class PassiveHostiles extends JavaPlugin implements Listener
                 {
                     for(Mob mob : world.getEntitiesByClass(Mob.class))
                     {
-                        if(breedingItems.containsKey(mob.getType()))
+                        if(!breedingItems.containsKey(mob.getType()))
                         {
-                            if(mob.getTarget() != null && mob.getTarget().getType() == EntityType.PLAYER)
+                            continue;
+                        }
+                        
+                        // Run this on a timer to interrupt hostile mob targeting when a player
+                        // switches to the breeding item *after* the mob started targeting
+                        if(mob.getTarget() != null && mob.getTarget().getType() == EntityType.PLAYER)
+                        {
+                            Player player = (Player) mob.getTarget();
+                            if(player.getInventory().getItemInMainHand().getType() == breedingItems.get(mob.getType()) ||
+                                    player.getInventory().getItemInOffHand().getType() == breedingItems.get(mob.getType()))
                             {
-                                Player player = (Player) mob.getTarget();
-                                if(player.getInventory().getItemInMainHand().getType() == breedingItems.get(mob.getType()) ||
-                                        player.getInventory().getItemInOffHand().getType() == breedingItems.get(mob.getType()))
+                                mob.setTarget(null);
+                            }
+                        }
+                        
+                        // Every second, pathfind to other mobs of the same type in love
+                        if(currentTick % 20 == 0 && isInLove(mob))
+                        {
+                            Mob closest = null;
+                            double closestDistance = Double.MAX_VALUE;
+                            for(Entity e : mob.getNearbyEntities(8, 8, 8))
+                            {
+                                if(e.getType() != mob.getType())
                                 {
-                                    mob.setTarget(null);
+                                    continue;
+                                }
+                                Mob check = (Mob) e;
+                                if(!isInLove(check))
+                                {
+                                    continue;
+                                }
+                                
+                                double distance = check.getLocation().distance(mob.getLocation());
+                                if(distance < closestDistance)
+                                {
+                                    closest = check;
+                                    closestDistance = distance;
+                                }
+                            }
+                            
+                            if(closest != null)
+                            {
+                                mob.getPathfinder().moveTo(closest);
+                                if(closestDistance < 1.0)
+                                {
+                                    Location l1 = mob.getLocation();
+                                    Location l2 = closest.getLocation();
+                                    Location spawnLoc = new Location(mob.getWorld(),
+                                            (l1.getX() + l2.getX()) / 2.0,
+                                            (l1.getY() + l2.getY()) / 2.0,
+                                            (l1.getZ() + l2.getZ()) / 2.0);
+                                    for(int i = 0; i < 10; i++)
+                                    {
+                                        spawnLoc.getWorld().spawnParticle(Particle.HEART, spawnLoc.clone().add(
+                                                random.nextDouble() - 0.5,
+                                                random.nextDouble() + 0.5,
+                                                random.nextDouble() - 0.5), 1);
+                                    }
+                                    spawnLoc.getWorld().spawn(spawnLoc, Creeper.class);
+                                    ExperienceOrb experience = spawnLoc.getWorld().spawn(spawnLoc, ExperienceOrb.class);
+                                    experience.setExperience(random.nextInt(6) + 1);
+                                    
+                                    mob.getPersistentDataContainer().set(lastInLoveKey, PersistentDataType.LONG, 0L);
+                                    closest.getPersistentDataContainer().set(lastInLoveKey, PersistentDataType.LONG, 0L);
+                                    mob.getPersistentDataContainer().set(lastBredKey, PersistentDataType.LONG, System.currentTimeMillis());
+                                    closest.getPersistentDataContainer().set(lastBredKey, PersistentDataType.LONG, System.currentTimeMillis());
                                 }
                             }
                         }
