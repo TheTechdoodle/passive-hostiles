@@ -33,6 +33,9 @@ public class PassiveHostiles extends JavaPlugin implements Listener
         breedingItems.put(EntityType.CREEPER, Material.GUNPOWDER);
         
         getServer().getPluginManager().registerEvents(this, this);
+        
+        // Run this on a timer to interrupt hostile mob targeting when a player
+        // switches to the breeding item *after* the mob started targeting
         getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable()
         {
             @Override
@@ -47,7 +50,8 @@ public class PassiveHostiles extends JavaPlugin implements Listener
                             if(mob.getTarget() != null && mob.getTarget().getType() == EntityType.PLAYER)
                             {
                                 Player player = (Player) mob.getTarget();
-                                if(player.getInventory().getItemInMainHand().getType() == breedingItems.get(mob.getType()))
+                                if(player.getInventory().getItemInMainHand().getType() == breedingItems.get(mob.getType()) ||
+                                        player.getInventory().getItemInOffHand().getType() == breedingItems.get(mob.getType()))
                                 {
                                     mob.setTarget(null);
                                 }
@@ -62,14 +66,18 @@ public class PassiveHostiles extends JavaPlugin implements Listener
     @EventHandler
     public void onEntityTargetLivingEntity(EntityTargetLivingEntityEvent event)
     {
+        // Check if this is a hostile mob targeting a player holding the breeding item
         if(breedingItems.containsKey(event.getEntityType()) && event.getTarget() != null && event.getTarget().getType() == EntityType.PLAYER)
         {
             Mob mob = (Mob) event.getEntity();
             Player player = (Player) event.getTarget();
             
-            if(player.getInventory().getItemInMainHand().getType() == breedingItems.get(event.getEntityType()))
+            if(player.getInventory().getItemInMainHand().getType() == breedingItems.get(event.getEntityType()) ||
+                    player.getInventory().getItemInOffHand().getType() == breedingItems.get(event.getEntityType()))
             {
                 event.setCancelled(true);
+                
+                // If the mob is in love, it should be looking for a partner, not following the player
                 if(!mob.getPersistentDataContainer().has(inLoveKey, PersistentDataType.BYTE))
                 {
                     mob.getPathfinder().moveTo(event.getTarget());
